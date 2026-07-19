@@ -1,18 +1,23 @@
-# Environment variables and local settings
+# Dependencies and build output
+node_modules/
+.next/
+out/
+coverage/
+*.tsbuildinfo
+next-env.d.ts
+
+# Secrets (keep the documented template)
 .env
 .env.*
 !.env.example
 
-# Dependencies and build output
-node_modules/
-dist/
-build/
-
-# IDE and OS files
+# Logs and local tools
+*.log
 .idea/
 .vscode/
 .DS_Store
 Thumbs.db
 
-# Logs
-*.log
+# Railway and local database volumes
+.railway/
+postgres-data/

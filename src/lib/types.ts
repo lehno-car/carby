@@ -1,0 +1,41 @@
+export type SafeUser = {
+  id: string;
+  telegramId: string;
+  username: string | null;
+  firstName: string;
+  lastName: string | null;
+  photoUrl: string | null;
+  phone: string | null;
+  role: "user" | "admin";
+};
+
+export type Listing = {
+  id: string;
+  ownerId: string;
+  make: string;
+  model: string;
+  generation: string | null;
+  year: number;
+  price: number;
+  currency: "BYN" | "RUB" | "USD";
+  mileage: number;
+  bodyType: string;
+  fuelType: string;
+  transmission: string;
+  drivetrain: string;
+  engineVolume: string | null;
+  horsepower: number | null;
+  color: string | null;
+  maskedVin: string | null;
+  country: string;
+  city: string;
+  description: string;
+  sellerPhone: string | null;
+  sellerTelegram: string | null;
+  status: "draft" | "pending" | "active" | "rejected" | "sold" | "archived";
+  rejectionReason: string | null;
+  viewCount: number;
+  createdAt: string;
+  images: Array<{ id: string; url: string; position: number }>;
+  owner?: { username: string | null; firstName: string; phone: string | null };
+};

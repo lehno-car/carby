@@ -1,0 +1,19 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: automarket
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d automarket"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    volumes:
+      - automarket-postgres:/var/lib/postgresql/data
+
+volumes:
+  automarket-postgres:
