@@ -15,6 +15,16 @@ type AuthContextValue = {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
+async function waitForTelegramInitData(timeoutMs = 2_000) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const initData = window.Telegram?.WebApp.initData;
+    if (initData) return initData;
+    await new Promise((resolve) => window.setTimeout(resolve, 100));
+  }
+  return "";
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<SafeUser | null>(null);
   const [loading, setLoading] = useState(true);
@@ -27,7 +37,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(result.user);
       setError(null);
     } catch {
-      const initData = window.Telegram?.WebApp.initData;
+      setUser(null);
+      const initData = await waitForTelegramInitData();
       if (initData) {
         try {
           const result = await api<{ user: SafeUser }>("/api/auth/telegram", {
@@ -39,6 +50,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         } catch (authError) {
           setError(authError instanceof Error ? authError.message : "Ошибка Telegram-авторизации");
         }
+      } else {
+        setError(
+          "Telegram не передал initData. Закройте страницу и откройте Mini App кнопкой внутри @carbytestbot",
+        );
       }
     } finally {
       setLoading(false);

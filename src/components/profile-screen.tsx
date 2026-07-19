@@ -1,6 +1,6 @@
 "use client";
 
-import { LogIn, LogOut, ShieldCheck, UserRound } from "lucide-react";
+import { LogIn, LogOut, RefreshCw, ShieldCheck, UserRound } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 
@@ -43,9 +43,15 @@ export function ProfileScreen() {
             <h3>Вы не авторизованы</h3>
             <p className="muted">В Telegram вход произойдёт автоматически.</p>
             {error && <p className="error small">{error}</p>}
-            <button className="button" onClick={() => void loginForDevelopment()}>
-              <LogIn size={18} /> Тестовый вход
-            </button>
+            {process.env.NODE_ENV === "development" ? (
+              <button className="button" onClick={() => void loginForDevelopment()}>
+                <LogIn size={18} /> Тестовый вход
+              </button>
+            ) : (
+              <button className="button" onClick={() => void refresh()}>
+                <RefreshCw size={18} /> Повторить авторизацию
+              </button>
+            )}
           </div>
         </div>
       )}

@@ -11,19 +11,36 @@ export class ApiError extends Error {
   }
 }
 
-export function apiError(error: unknown) {
+type ApiErrorOptions = {
+  requestId?: string;
+};
+
+function errorBody(error: string, code: string, requestId?: string, extra?: object) {
+  return {
+    error,
+    code,
+    ...(requestId ? { requestId } : {}),
+    ...extra,
+  };
+}
+
+export function apiError(error: unknown, options: ApiErrorOptions = {}) {
   if (error instanceof ApiError) {
-    return NextResponse.json({ error: error.message, code: error.code }, { status: error.status });
+    return NextResponse.json(errorBody(error.message, error.code, options.requestId), {
+      status: error.status,
+    });
   }
   if (error instanceof ZodError) {
     return NextResponse.json(
-      { error: "Проверьте заполненные поля", code: "VALIDATION_ERROR", issues: error.issues },
+      errorBody("Проверьте заполненные поля", "VALIDATION_ERROR", options.requestId, {
+        issues: error.issues,
+      }),
       { status: 400 },
     );
   }
   console.error("Request failed", error instanceof Error ? error.message : "Unknown error");
   return NextResponse.json(
-    { error: "Внутренняя ошибка сервера", code: "INTERNAL_ERROR" },
+    errorBody("Внутренняя ошибка сервера", "INTERNAL_ERROR", options.requestId),
     { status: 500 },
   );
 }
