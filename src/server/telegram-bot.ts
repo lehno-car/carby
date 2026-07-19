@@ -10,8 +10,9 @@ async function telegramRequest<T>(method: string, body: unknown) {
     signal: AbortSignal.timeout(10_000),
   });
   const data = (await response.json()) as TelegramResponse<T>;
-  if (!response.ok || !data.ok)
+  if (!response.ok || !data.ok) {
     throw new Error(`Telegram ${method} failed: ${data.description ?? response.status}`);
+  }
   return data.result;
 }
 
@@ -19,10 +20,19 @@ export function sendStartMessage(chatId: number) {
   const webAppUrl = process.env.TELEGRAM_WEBAPP_URL ?? process.env.APP_URL;
   return telegramRequest("sendMessage", {
     chat_id: chatId,
-    text: "🚗 Добро пожаловать в AutoMarket — автомобили с пробегом по Беларуси.",
+    text: "Добро пожаловать в AutoMarket. Здесь можно открыть Mini App или подтвердить вход с сайта.",
     reply_markup: {
       inline_keyboard: [[{ text: "Открыть AutoMarket", web_app: { url: webAppUrl } }]],
     },
+  });
+}
+
+export function sendLoginConfirmedMessage(chatId: number, confirmed: boolean) {
+  return telegramRequest("sendMessage", {
+    chat_id: chatId,
+    text: confirmed
+      ? "Вход подтверждён. Вернитесь на сайт, авторизация завершится автоматически."
+      : "Ссылка авторизации не найдена или истекла. Вернитесь на сайт и нажмите «Войти через Telegram» ещё раз.",
   });
 }
 
@@ -33,8 +43,8 @@ export async function notifyModerationResult(
   reason?: string,
 ) {
   const text = approved
-    ? `✅ Объявление «${listingTitle}» опубликовано.`
-    : `❌ Объявление «${listingTitle}» отклонено. Причина: ${reason}`;
+    ? `Объявление «${listingTitle}» опубликовано.`
+    : `Объявление «${listingTitle}» отклонено. Причина: ${reason}`;
   try {
     await telegramRequest("sendMessage", { chat_id: telegramId.toString(), text });
   } catch (error) {

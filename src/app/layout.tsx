@@ -29,7 +29,6 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
           {`(()=>{try{const key="carby-theme";const saved=localStorage.getItem(key);const media=matchMedia("(prefers-color-scheme: dark)").matches;const theme=saved==="light"||saved==="dark"?saved:media?"dark":"light";document.documentElement.dataset.theme=theme;document.documentElement.style.colorScheme=theme;}catch{}})();`}
         </Script>
         <Script src="https://telegram.org/js/telegram-web-app.js?59" strategy="beforeInteractive" />
-        <Script src="https://telegram.org/js/telegram-widget.js?22" strategy="afterInteractive" />
         <ThemeProvider>
           <AuthProvider>
             <main className="app-shell">{children}</main>

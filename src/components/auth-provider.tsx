@@ -14,10 +14,13 @@ type AuthContextValue = {
   refresh(): Promise<void>;
 };
 
-type TelegramLoginConfig = {
-  botId: string;
-  botUsername: string | null;
+type TelegramDeepLoginStart = {
+  token: string;
+  url: string;
+  expiresAt: string;
 };
+
+type TelegramDeepLoginPoll = { status: "pending" } | { status: "confirmed"; user: SafeUser };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
@@ -35,7 +38,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<SafeUser | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [telegramLoginConfig, setTelegramLoginConfig] = useState<TelegramLoginConfig | null>(null);
+  const [loginHint, setLoginHint] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -43,6 +46,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const result = await api<{ user: SafeUser }>("/api/auth/me");
       setUser(result.user);
       setError(null);
+      setLoginHint(null);
     } catch {
       setUser(null);
       const initData = await waitForTelegramInitData();
@@ -72,18 +76,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => window.clearTimeout(timer);
   }, [refresh]);
 
-  useEffect(() => {
-    let alive = true;
-    void api<TelegramLoginConfig>("/api/auth/telegram-login/config")
-      .then((config) => {
-        if (alive) setTelegramLoginConfig(config);
-      })
-      .catch(() => {});
-    return () => {
-      alive = false;
-    };
-  }, [telegramLoginConfig]);
-
   const loginForDevelopment = useCallback(async () => {
     setLoading(true);
     try {
@@ -98,48 +90,49 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const loginWithTelegram = useCallback(async () => {
+    const loginWindow = window.open("about:blank", "_blank");
     try {
       setError(null);
-      const config = telegramLoginConfig;
-      if (!config) {
-        const loadedConfig = await api<TelegramLoginConfig>("/api/auth/telegram-login/config");
-        setTelegramLoginConfig(loadedConfig);
-        throw new Error("Telegram-вход готов. Нажмите кнопку ещё раз.");
-      }
-
-      const login = window.Telegram?.Login;
-      if (!login) {
-        throw new Error("Telegram Login Widget не загрузился. Обновите страницу и попробуйте ещё раз.");
-      }
-
-      const telegramUser = await new Promise<TelegramLoginUser>((resolve, reject) => {
-        login.auth({ bot_id: config.botId, request_access: "write" }, (result) => {
-          if (!result) {
-            reject(new Error("Вход через Telegram отменён"));
-            return;
-          }
-          resolve(result);
-        });
-      });
-
-      setLoading(true);
-      const result = await api<{ user: SafeUser }>("/api/auth/telegram-login", {
+      setLoginHint("Откроется бот Telegram. Нажмите Start, затем вернитесь на сайт.");
+      const start = await api<TelegramDeepLoginStart>("/api/auth/telegram-deep-login/start", {
         method: "POST",
-        body: JSON.stringify(telegramUser),
       });
-      setUser(result.user);
-      setError(null);
+      if (loginWindow) {
+        loginWindow.location.href = start.url;
+        loginWindow.opener = null;
+      } else {
+        window.location.href = start.url;
+        return;
+      }
+
+      const deadline = new Date(start.expiresAt).getTime();
+      while (Date.now() < deadline) {
+        await new Promise((resolve) => window.setTimeout(resolve, 2_000));
+        const poll = await api<TelegramDeepLoginPoll>("/api/auth/telegram-deep-login/poll", {
+          method: "POST",
+          body: JSON.stringify({ token: start.token }),
+        });
+        if (poll.status === "confirmed") {
+          setUser(poll.user);
+          setError(null);
+          setLoginHint(null);
+          return;
+        }
+      }
+
+      throw new Error("Время подтверждения истекло. Нажмите «Войти через Telegram» ещё раз.");
     } catch (loginError) {
       setUser(null);
       setError(loginError instanceof Error ? loginError.message : "Не удалось войти через Telegram");
+      setLoginHint(null);
     } finally {
       setLoading(false);
     }
-  }, [telegramLoginConfig]);
+  }, []);
 
   const value = useMemo(
-    () => ({ user, loading, error, loginWithTelegram, loginForDevelopment, refresh }),
-    [user, loading, error, loginWithTelegram, loginForDevelopment, refresh],
+    () => ({ user, loading, error: error ?? loginHint, loginWithTelegram, loginForDevelopment, refresh }),
+    [user, loading, error, loginHint, loginWithTelegram, loginForDevelopment, refresh],
   );
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

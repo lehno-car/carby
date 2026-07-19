@@ -181,6 +181,22 @@ export const rateLimitEntries = pgTable(
   (table) => [index("rate_limit_reset_idx").on(table.resetAt)],
 );
 
+export const telegramLoginRequests = pgTable(
+  "telegram_login_requests",
+  {
+    token: varchar("token", { length: 80 }).primaryKey(),
+    telegramId: bigint("telegram_id", { mode: "bigint" }),
+    status: varchar("status", { length: 20 }).notNull().default("pending"),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    confirmedAt: timestamp("confirmed_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("telegram_login_requests_status_idx").on(table.status),
+    index("telegram_login_requests_expires_idx").on(table.expiresAt),
+  ],
+);
+
 export const usersRelations = relations(users, ({ many }) => ({
   listings: many(carListings),
   favorites: many(favorites),
@@ -225,6 +241,7 @@ export const schema = {
   reports,
   moderationEvents,
   rateLimitEntries,
+  telegramLoginRequests,
 };
 
 export const activeListing = sql`${carListings.status} = 'active'`;
