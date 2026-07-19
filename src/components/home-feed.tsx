@@ -1,11 +1,10 @@
 "use client";
 
-import { SlidersHorizontal, Search, X } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { MapPin, Mic, Search, SlidersHorizontal, X, Zap } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { ListingCard } from "@/components/listing-card";
-import { PageHeader } from "@/components/page-header";
-import { api } from "@/lib/api";
+import { api, formatPrice } from "@/lib/api";
 import type { Listing } from "@/lib/types";
 
 const bodies = ["Все", "Седан", "Универсал", "Хэтчбек", "Кроссовер", "Внедорожник", "Минивэн"];
@@ -33,6 +32,10 @@ export function HomeFeed() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const featured = items[0];
+  const heroImage = featured?.images[0]?.url.replace("variant=thumb", "variant=full");
+  const title = featured ? `${featured.make} ${featured.model}` : "Автомобиль, который подходит вам";
+
   const load = useCallback(
     async (nextPage = 1, append = false) => {
       setLoading(true);
@@ -51,9 +54,7 @@ export function HomeFeed() {
         setPage(data.page);
         setHasMore(data.hasMore);
       } catch (loadError) {
-        setError(
-          loadError instanceof Error ? loadError.message : "Не удалось загрузить объявления",
-        );
+        setError(loadError instanceof Error ? loadError.message : "Не удалось загрузить объявления");
       } finally {
         setLoading(false);
       }
@@ -70,39 +71,76 @@ export function HomeFeed() {
     setFilters((current) => ({ ...current, [key]: value }));
   }
 
+  const heroChips = useMemo(
+    () => [
+      { label: "Рядом", icon: <MapPin size={15} /> },
+      { label: filters.maxPrice ? `До ${filters.maxPrice} ${filters.currency}` : "До 30 000" },
+      { label: filters.fuelType || "Электро", icon: <Zap size={15} /> },
+      { label: filters.minYear || "2022+" },
+    ],
+    [filters.currency, filters.fuelType, filters.maxPrice, filters.minYear],
+  );
+
   return (
     <>
-      <PageHeader title="AutoMarket" subtitle="Автомобили · Беларусь" />
-      <div className="search-row">
-        <label className="search-box">
-          <Search size={20} />
-          <input
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder="Марка или модель"
-            aria-label="Поиск"
-          />
-          {query && (
-            <button
-              className="icon-button"
-              style={{ width: 30, height: 30, boxShadow: "none" }}
-              onClick={() => setQuery("")}
-              aria-label="Очистить"
-            >
-              <X size={16} />
+      <section className="home-hero">
+        {heroImage ? <img src={heroImage} alt={title} /> : <div className="home-hero-fallback" />}
+        <div className="home-hero-shade" />
+        <div className="home-hero-top">
+          <button className="location-pill" type="button">
+            <MapPin size={15} /> Беларусь
+          </button>
+          <span className="profile-dot">CB</span>
+        </div>
+        <div className="home-hero-content">
+          <h1>{featured ? "Автомобиль, который подходит вам" : title}</h1>
+          <label className="hero-search">
+            <Search size={21} />
+            <input
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="Поиск марки или модели"
+              aria-label="Поиск"
+            />
+            {query ? (
+              <button type="button" onClick={() => setQuery("")} aria-label="Очистить">
+                <X size={17} />
+              </button>
+            ) : (
+              <Mic size={19} />
+            )}
+          </label>
+          <div className="hero-chip-row">
+            {heroChips.map((chip) => (
+              <button className="hero-chip" key={chip.label} type="button">
+                {chip.icon}
+                {chip.label}
+              </button>
+            ))}
+            <button className="hero-chip" type="button" onClick={() => setShowFilters(!showFilters)}>
+              <SlidersHorizontal size={15} />
+              Фильтры
             </button>
-          )}
-        </label>
-        <button
-          className="icon-button"
-          onClick={() => setShowFilters(!showFilters)}
-          aria-label="Фильтры"
-        >
-          <SlidersHorizontal size={21} />
-        </button>
-      </div>
+          </div>
+        </div>
+      </section>
 
-      <div className="chips">
+      {featured && (
+        <section className="featured-card">
+          <div>
+            <p className="eyebrow">Выбор дня</p>
+            <h2>
+              {featured.make} {featured.model}
+            </h2>
+            <p>{formatPrice(featured.price, featured.currency)}</p>
+          </div>
+          <a className="icon-button" href={`/listing/${featured.id}`} aria-label="Открыть объявление">
+            →
+          </a>
+        </section>
+      )}
+
+      <div className="chips compact">
         {bodies.map((body) => (
           <button
             key={body}
@@ -117,72 +155,22 @@ export function HomeFeed() {
       {showFilters && (
         <section className="panel section" aria-label="Фильтры">
           <div className="field-grid">
-            <div className="field">
-              <label>Год от</label>
-              <input
-                className="input"
-                inputMode="numeric"
-                value={filters.minYear}
-                onChange={(event) => updateFilter("minYear", event.target.value)}
-                placeholder="2015"
-              />
-            </div>
-            <div className="field">
-              <label>Год до</label>
-              <input
-                className="input"
-                inputMode="numeric"
-                value={filters.maxYear}
-                onChange={(event) => updateFilter("maxYear", event.target.value)}
-                placeholder="2026"
-              />
-            </div>
-            <div className="field">
-              <label>Цена от</label>
-              <input
-                className="input"
-                inputMode="numeric"
-                value={filters.minPrice}
-                onChange={(event) => updateFilter("minPrice", event.target.value)}
-              />
-            </div>
-            <div className="field">
-              <label>Цена до</label>
-              <input
-                className="input"
-                inputMode="numeric"
-                value={filters.maxPrice}
-                onChange={(event) => updateFilter("maxPrice", event.target.value)}
-              />
-            </div>
+            <Field label="Год от" value={filters.minYear} onChange={(value) => updateFilter("minYear", value)} placeholder="2015" />
+            <Field label="Год до" value={filters.maxYear} onChange={(value) => updateFilter("maxYear", value)} placeholder="2026" />
+            <Field label="Цена от" value={filters.minPrice} onChange={(value) => updateFilter("minPrice", value)} />
+            <Field label="Цена до" value={filters.maxPrice} onChange={(value) => updateFilter("maxPrice", value)} />
             <div className="field">
               <label>Валюта</label>
-              <select
-                className="input"
-                value={filters.currency}
-                onChange={(event) => updateFilter("currency", event.target.value)}
-              >
+              <select className="input" value={filters.currency} onChange={(event) => updateFilter("currency", event.target.value)}>
                 <option>BYN</option>
                 <option>USD</option>
                 <option>RUB</option>
               </select>
             </div>
-            <div className="field">
-              <label>Пробег до, км</label>
-              <input
-                className="input"
-                inputMode="numeric"
-                value={filters.maxMileage}
-                onChange={(event) => updateFilter("maxMileage", event.target.value)}
-              />
-            </div>
+            <Field label="Пробег до, км" value={filters.maxMileage} onChange={(value) => updateFilter("maxMileage", value)} />
             <div className="field">
               <label>Топливо</label>
-              <select
-                className="input"
-                value={filters.fuelType}
-                onChange={(event) => updateFilter("fuelType", event.target.value)}
-              >
+              <select className="input" value={filters.fuelType} onChange={(event) => updateFilter("fuelType", event.target.value)}>
                 <option value="">Любое</option>
                 <option>Бензин</option>
                 <option>Дизель</option>
@@ -190,61 +178,18 @@ export function HomeFeed() {
                 <option>Электро</option>
               </select>
             </div>
-            <div className="field">
-              <label>Коробка</label>
-              <select
-                className="input"
-                value={filters.transmission}
-                onChange={(event) => updateFilter("transmission", event.target.value)}
-              >
-                <option value="">Любая</option>
-                <option>Механика</option>
-                <option>Автомат</option>
-                <option>Робот</option>
-                <option>Вариатор</option>
-              </select>
-            </div>
-            <div className="field">
-              <label>Привод</label>
-              <select
-                className="input"
-                value={filters.drivetrain}
-                onChange={(event) => updateFilter("drivetrain", event.target.value)}
-              >
-                <option value="">Любой</option>
-                <option>Передний</option>
-                <option>Задний</option>
-                <option>Полный</option>
-              </select>
-            </div>
-            <div className="field">
-              <label>Город</label>
-              <input
-                className="input"
-                value={filters.city}
-                onChange={(event) => updateFilter("city", event.target.value)}
-                placeholder="Минск"
-              />
-            </div>
-            <div className="field full">
-              <label>Сортировка</label>
-              <select
-                className="input"
-                value={filters.sort}
-                onChange={(event) => updateFilter("sort", event.target.value)}
-              >
-                <option value="newest">Сначала новые</option>
-                <option value="price_asc">Цена: по возрастанию</option>
-                <option value="price_desc">Цена: по убыванию</option>
-                <option value="mileage_asc">Меньший пробег</option>
-              </select>
-            </div>
+            <Field label="Город" value={filters.city} onChange={(value) => updateFilter("city", value)} placeholder="Минск" />
           </div>
         </section>
       )}
 
       <section className="section">
-        <h2>Свежие объявления</h2>
+        <div className="section-heading">
+          <h2>Подобрано для вас</h2>
+          <button className="link-button" type="button" onClick={() => void load()}>
+            Обновить
+          </button>
+        </div>
         {error && <p className="notice">{error}</p>}
         {loading && !items.length ? (
           <div className="car-grid">
@@ -266,15 +211,36 @@ export function HomeFeed() {
           ))}
         </div>
         {hasMore && (
-          <button
-            className="button secondary full section"
-            disabled={loading}
-            onClick={() => void load(page + 1, true)}
-          >
+          <button className="button secondary full section" disabled={loading} onClick={() => void load(page + 1, true)}>
             {loading ? "Загрузка…" : "Показать ещё"}
           </button>
         )}
       </section>
     </>
+  );
+}
+
+function Field({
+  label,
+  value,
+  onChange,
+  placeholder,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  placeholder?: string;
+}) {
+  return (
+    <div className="field">
+      <label>{label}</label>
+      <input
+        className="input"
+        inputMode="numeric"
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        placeholder={placeholder}
+      />
+    </div>
   );
 }

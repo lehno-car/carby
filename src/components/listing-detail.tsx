@@ -1,6 +1,6 @@
 "use client";
 
-import { Car, Eye, Flag, Heart, MapPin, MessageCircle, Phone } from "lucide-react";
+import { CalendarDays, Car, Eye, Flag, Gauge, Heart, MapPin, MessageCircle, Phone, Share2 } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { BackButton } from "@/components/back-button";
@@ -57,6 +57,7 @@ export function ListingDetail({ id }: { id: string }) {
         </div>
       </>
     );
+
   if (!listing)
     return (
       <>
@@ -66,103 +67,83 @@ export function ListingDetail({ id }: { id: string }) {
         <div className="skeleton" />
       </>
     );
+
   const image = listing.images[activeImage];
   const telegram = listing.sellerTelegram || listing.owner?.username;
   const phone = listing.sellerPhone || listing.owner?.phone;
 
   return (
-    <>
-      <div className="page-header">
-        <BackButton />
-        <button
-          className={`icon-button${favorite ? " favorite on" : ""}`}
-          onClick={toggleFavorite}
-          aria-label="Избранное"
-        >
-          <Heart size={21} fill={favorite ? "currentColor" : "none"} />
-        </button>
-      </div>
-      <div
-        className="hero-image"
-        onClick={() =>
-          listing.images.length && setActiveImage((activeImage + 1) % listing.images.length)
-        }
+    <article className="listing-page">
+      <section
+        className="listing-hero"
+        onClick={() => listing.images.length && setActiveImage((activeImage + 1) % listing.images.length)}
       >
         {image ? (
-          <img
-            src={image.url.replace("variant=thumb", "variant=full")}
-            alt={`${listing.make} ${listing.model}`}
-          />
+          <img src={image.url.replace("variant=thumb", "variant=full")} alt={`${listing.make} ${listing.model}`} />
         ) : (
           <span className="placeholder">
             <Car size={56} />
           </span>
         )}
+        <div className="listing-hero-shade" />
+        <div className="listing-hero-actions">
+          <BackButton />
+          <button className={`icon-button${favorite ? " favorite on" : ""}`} onClick={toggleFavorite} aria-label="Избранное">
+            <Heart size={21} fill={favorite ? "currentColor" : "none"} />
+          </button>
+        </div>
+        <button className="icon-button listing-share" type="button" aria-label="Поделиться">
+          <Share2 size={19} />
+        </button>
         {listing.images.length > 0 && (
           <span className="gallery-count">
             {activeImage + 1} / {listing.images.length}
           </span>
         )}
-      </div>
-      <p className="eyebrow">
-        {listing.city} · {listing.year}
-      </p>
-      <h1>
-        {listing.make} {listing.model}
-      </h1>
-      {listing.generation && <p className="muted">{listing.generation}</p>}
-      <p className="price-large section">{formatPrice(listing.price, listing.currency)}</p>
-      <div className="details-list section">
-        <div className="detail">
-          <span>Пробег</span>
-          <strong>{formatMileage(listing.mileage)}</strong>
-        </div>
-        <div className="detail">
-          <span>Кузов</span>
-          <strong>{listing.bodyType}</strong>
-        </div>
-        <div className="detail">
-          <span>Топливо</span>
-          <strong>{listing.fuelType}</strong>
-        </div>
-        <div className="detail">
-          <span>Коробка</span>
-          <strong>{listing.transmission}</strong>
-        </div>
-        <div className="detail">
-          <span>Привод</span>
-          <strong>{listing.drivetrain}</strong>
-        </div>
-        <div className="detail">
-          <span>Двигатель</span>
-          <strong>{listing.engineVolume ? `${listing.engineVolume} л` : "—"}</strong>
-        </div>
-        <div className="detail">
-          <span>Мощность</span>
-          <strong>{listing.horsepower ? `${listing.horsepower} л.с.` : "—"}</strong>
-        </div>
-        <div className="detail">
-          <span>VIN</span>
-          <strong>{listing.maskedVin ?? "Не указан"}</strong>
-        </div>
-      </div>
-      <section className="panel section">
-        <h2>Описание</h2>
-        <p style={{ whiteSpace: "pre-wrap", lineHeight: 1.6 }}>{listing.description}</p>
-        <p className="muted small">
-          <MapPin size={14} style={{ verticalAlign: -2 }} /> {listing.country}, {listing.city}
-        </p>
       </section>
-      <section className="panel section">
-        <h2>Продавец</h2>
-        <h3>{listing.owner?.firstName ?? "Владелец автомобиля"}</h3>
-        <p className="muted small">
-          <Eye size={14} style={{ verticalAlign: -2 }} /> {listing.viewCount} просмотров
-        </p>
-        <button className="button secondary" onClick={() => void report()}>
-          <Flag size={17} /> Пожаловаться
-        </button>
+
+      <section className="listing-sheet">
+        <span className="sheet-handle" />
+        <div className="title-row">
+          <div>
+            <h1>
+              {listing.make} {listing.model}
+            </h1>
+            {listing.generation && <p className="muted">{listing.generation}</p>}
+          </div>
+          <span className="verified-badge">Проверенный</span>
+        </div>
+        <p className="price-large">{formatPrice(listing.price, listing.currency)}</p>
+
+        <div className="details-list section">
+          <Detail icon={<CalendarDays size={21} />} label="Год выпуска" value={String(listing.year)} />
+          <Detail icon={<Gauge size={21} />} label="Пробег" value={formatMileage(listing.mileage)} />
+          <Detail icon={<Car size={21} />} label="Топливо" value={listing.fuelType} />
+          <Detail icon={<Car size={21} />} label="Коробка" value={listing.transmission} />
+        </div>
+
+        <section className="panel section">
+          <h2>Описание</h2>
+          <p style={{ whiteSpace: "pre-wrap", lineHeight: 1.6 }}>{listing.description}</p>
+          <p className="muted small">
+            <MapPin size={14} style={{ verticalAlign: -2 }} /> {listing.country}, {listing.city}
+          </p>
+        </section>
+
+        <section className="seller-row section">
+          <div className="seller-avatar">{listing.owner?.firstName?.[0] ?? "A"}</div>
+          <div>
+            <h3>{listing.owner?.firstName ?? "Владелец автомобиля"}</h3>
+            <p className="muted small">
+              <Eye size={14} style={{ verticalAlign: -2 }} /> {listing.viewCount} просмотров
+            </p>
+          </div>
+          <button className="icon-button" onClick={() => void report()} aria-label="Пожаловаться">
+            <Flag size={17} />
+          </button>
+        </section>
       </section>
+
       <div className="contact-bar">
         {phone ? (
           <a className="button secondary" href={`tel:${phone}`}>
@@ -174,13 +155,8 @@ export function ListingDetail({ id }: { id: string }) {
           </button>
         )}
         {telegram ? (
-          <a
-            className="button"
-            href={`https://t.me/${telegram.replace(/^@/, "")}`}
-            target="_blank"
-            rel="noreferrer"
-          >
-            <MessageCircle size={18} /> Telegram
+          <a className="button" href={`https://t.me/${telegram.replace(/^@/, "")}`} target="_blank" rel="noreferrer">
+            <MessageCircle size={18} /> Написать
           </a>
         ) : (
           <button className="button" disabled>
@@ -188,6 +164,18 @@ export function ListingDetail({ id }: { id: string }) {
           </button>
         )}
       </div>
-    </>
+    </article>
+  );
+}
+
+function Detail({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
+  return (
+    <div className="detail">
+      {icon}
+      <div>
+        <strong>{value}</strong>
+        <span>{label}</span>
+      </div>
+    </div>
   );
 }
