@@ -23,7 +23,17 @@ type DiagnosticStage =
   "connection" | "schema" | "rate_limit_read" | "rate_limit_insert" | "rate_limit_update";
 
 function safeDatabaseError(error: unknown) {
-  const candidate = error as { message?: unknown; code?: unknown };
+  let candidate = error as { message?: unknown; code?: unknown; cause?: unknown };
+  const visited = new Set<unknown>();
+  while (
+    candidate &&
+    typeof candidate === "object" &&
+    candidate.cause &&
+    !visited.has(candidate.cause)
+  ) {
+    visited.add(candidate);
+    candidate = candidate.cause as { message?: unknown; code?: unknown; cause?: unknown };
+  }
   const message =
     typeof candidate?.message === "string"
       ? candidate.message.replace(/postgres(?:ql)?:\/\/\S+/gi, "[DATABASE_URL скрыт]").slice(0, 500)
