@@ -3,6 +3,7 @@ import Script from "next/script";
 
 import { AuthProvider } from "@/components/auth-provider";
 import { BottomNav } from "@/components/bottom-nav";
+import { ThemeProvider } from "@/components/theme-provider";
 
 import "./globals.css";
 
@@ -22,13 +23,18 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="ru">
+    <html lang="ru" suppressHydrationWarning>
       <body>
+        <Script id="theme-init" strategy="beforeInteractive">
+          {`(()=>{try{const key="carby-theme";const saved=localStorage.getItem(key);const media=matchMedia("(prefers-color-scheme: dark)").matches;const theme=saved==="light"||saved==="dark"?saved:media?"dark":"light";document.documentElement.dataset.theme=theme;document.documentElement.style.colorScheme=theme;}catch{}})();`}
+        </Script>
         <Script src="https://telegram.org/js/telegram-web-app.js?59" strategy="beforeInteractive" />
-        <AuthProvider>
-          <main className="app-shell">{children}</main>
-          <BottomNav />
-        </AuthProvider>
+        <ThemeProvider>
+          <AuthProvider>
+            <main className="app-shell">{children}</main>
+            <BottomNav />
+          </AuthProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

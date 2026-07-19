@@ -1,16 +1,18 @@
 "use client";
 
-import { LogIn, LogOut, RefreshCw, ShieldCheck, UserRound } from "lucide-react";
+import { LogIn, LogOut, Moon, RefreshCw, ShieldCheck, Sun, UserRound } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 
 import { useAuth } from "@/components/auth-provider";
 import { PageHeader } from "@/components/page-header";
+import { useTheme } from "@/components/theme-provider";
 import { api } from "@/lib/api";
 import type { SafeUser } from "@/lib/types";
 
 export function ProfileScreen() {
   const { user, loading, error, loginForDevelopment, refresh } = useAuth();
+  const { theme, setTheme } = useTheme();
   const [phoneOverride, setPhoneOverride] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const phone = phoneOverride ?? user?.phone ?? "";
@@ -35,6 +37,30 @@ export function ProfileScreen() {
   return (
     <>
       <PageHeader title="Профиль" subtitle="AutoMarket" />
+      <section className="panel theme-panel">
+        <div>
+          <h3>Тема интерфейса</h3>
+          <p className="muted small">Выберите оформление для mini app</p>
+        </div>
+        <div className="theme-toggle" aria-label="Тема интерфейса">
+          <button
+            className={`theme-option${theme === "light" ? " active" : ""}`}
+            type="button"
+            onClick={() => setTheme("light")}
+            aria-pressed={theme === "light"}
+          >
+            <Sun size={17} /> Светлая
+          </button>
+          <button
+            className={`theme-option${theme === "dark" ? " active" : ""}`}
+            type="button"
+            onClick={() => setTheme("dark")}
+            aria-pressed={theme === "dark"}
+          >
+            <Moon size={17} /> Тёмная
+          </button>
+        </div>
+      </section>
       {loading && <div className="skeleton" />}
       {!loading && !user && (
         <div className="empty">
