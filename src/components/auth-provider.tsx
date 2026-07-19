@@ -23,6 +23,7 @@ type TelegramDeepLoginStart = {
 type TelegramDeepLoginPoll = { status: "pending" } | { status: "confirmed"; user: SafeUser };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
+const PENDING_LOGIN_KEY = "carby-pending-telegram-login";
 
 async function waitForTelegramInitData(timeoutMs = 2_000) {
   const deadline = Date.now() + timeoutMs;
@@ -34,11 +35,54 @@ async function waitForTelegramInitData(timeoutMs = 2_000) {
   return "";
 }
 
+function savePendingLogin(login: Pick<TelegramDeepLoginStart, "token" | "expiresAt">) {
+  window.sessionStorage.setItem(PENDING_LOGIN_KEY, JSON.stringify(login));
+}
+
+function readPendingLogin(): Pick<TelegramDeepLoginStart, "token" | "expiresAt"> | null {
+  const raw = window.sessionStorage.getItem(PENDING_LOGIN_KEY);
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw) as Pick<TelegramDeepLoginStart, "token" | "expiresAt">;
+    if (!parsed.token || !parsed.expiresAt) return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function clearPendingLogin() {
+  window.sessionStorage.removeItem(PENDING_LOGIN_KEY);
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<SafeUser | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [loginHint, setLoginHint] = useState<string | null>(null);
+
+  const pollTelegramLogin = useCallback(async (token: string, expiresAt: string) => {
+    const deadline = new Date(expiresAt).getTime();
+    setLoginHint("Жду подтверждение в Telegram. Нажмите Start в боте и вернитесь на сайт.");
+
+    while (Date.now() < deadline) {
+      const poll = await api<TelegramDeepLoginPoll>("/api/auth/telegram-deep-login/poll", {
+        method: "POST",
+        body: JSON.stringify({ token }),
+      });
+      if (poll.status === "confirmed") {
+        clearPendingLogin();
+        setUser(poll.user);
+        setError(null);
+        setLoginHint(null);
+        return true;
+      }
+      await new Promise((resolve) => window.setTimeout(resolve, 2_000));
+    }
+
+    clearPendingLogin();
+    throw new Error("Время подтверждения истекло. Нажмите «Войти через Telegram» ещё раз.");
+  }, []);
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -49,6 +93,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoginHint(null);
     } catch {
       setUser(null);
+      const pendingLogin = readPendingLogin();
+      if (pendingLogin && new Date(pendingLogin.expiresAt).getTime() > Date.now()) {
+        try {
+          await pollTelegramLogin(pendingLogin.token, pendingLogin.expiresAt);
+          return;
+        } catch (pollError) {
+          setError(pollError instanceof Error ? pollError.message : "Не удалось завершить вход через Telegram");
+          setLoginHint(null);
+        }
+      }
+
       const initData = await waitForTelegramInitData();
       if (initData) {
         try {
@@ -67,7 +122,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [pollTelegramLogin]);
 
   useEffect(() => {
     window.Telegram?.WebApp.ready();
@@ -90,43 +145,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const loginWithTelegram = useCallback(async () => {
-    const loginWindow = window.open("about:blank", "_blank");
     try {
       setError(null);
-      setLoginHint("Откроется бот Telegram. Нажмите Start, затем вернитесь на сайт.");
+      setLoginHint("Сейчас откроется бот Telegram. Нажмите Start, затем вернитесь на сайт.");
       const start = await api<TelegramDeepLoginStart>("/api/auth/telegram-deep-login/start", {
         method: "POST",
       });
-      if (loginWindow) {
-        loginWindow.location.href = start.url;
-        loginWindow.opener = null;
-      } else {
-        window.location.href = start.url;
-        return;
-      }
-
-      const deadline = new Date(start.expiresAt).getTime();
-      while (Date.now() < deadline) {
-        await new Promise((resolve) => window.setTimeout(resolve, 2_000));
-        const poll = await api<TelegramDeepLoginPoll>("/api/auth/telegram-deep-login/poll", {
-          method: "POST",
-          body: JSON.stringify({ token: start.token }),
-        });
-        if (poll.status === "confirmed") {
-          setUser(poll.user);
-          setError(null);
-          setLoginHint(null);
-          return;
-        }
-      }
-
-      throw new Error("Время подтверждения истекло. Нажмите «Войти через Telegram» ещё раз.");
+      savePendingLogin({ token: start.token, expiresAt: start.expiresAt });
+      window.location.href = start.url;
     } catch (loginError) {
+      clearPendingLogin();
       setUser(null);
       setError(loginError instanceof Error ? loginError.message : "Не удалось войти через Telegram");
       setLoginHint(null);
-    } finally {
-      setLoading(false);
     }
   }, []);
 
