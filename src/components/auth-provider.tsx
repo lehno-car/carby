@@ -35,6 +35,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<SafeUser | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [telegramLoginConfig, setTelegramLoginConfig] = useState<TelegramLoginConfig | null>(null);
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -71,6 +72,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => window.clearTimeout(timer);
   }, [refresh]);
 
+  useEffect(() => {
+    let alive = true;
+    void api<TelegramLoginConfig>("/api/auth/telegram-login/config")
+      .then((config) => {
+        if (alive) setTelegramLoginConfig(config);
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [telegramLoginConfig]);
+
   const loginForDevelopment = useCallback(async () => {
     setLoading(true);
     try {
@@ -85,9 +98,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const loginWithTelegram = useCallback(async () => {
-    setLoading(true);
     try {
-      const config = await api<TelegramLoginConfig>("/api/auth/telegram-login/config");
+      setError(null);
+      const config = telegramLoginConfig;
+      if (!config) {
+        const loadedConfig = await api<TelegramLoginConfig>("/api/auth/telegram-login/config");
+        setTelegramLoginConfig(loadedConfig);
+        throw new Error("Telegram-вход готов. Нажмите кнопку ещё раз.");
+      }
+
       const login = window.Telegram?.Login;
       if (!login) {
         throw new Error("Telegram Login Widget не загрузился. Обновите страницу и попробуйте ещё раз.");
@@ -103,6 +122,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         });
       });
 
+      setLoading(true);
       const result = await api<{ user: SafeUser }>("/api/auth/telegram-login", {
         method: "POST",
         body: JSON.stringify(telegramUser),
@@ -115,7 +135,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [telegramLoginConfig]);
 
   const value = useMemo(
     () => ({ user, loading, error, loginWithTelegram, loginForDevelopment, refresh }),
