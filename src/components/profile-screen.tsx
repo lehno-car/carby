@@ -71,14 +71,23 @@ export function ProfileScreen() {
           <div>
             <UserRound size={44} />
             <h3>Вы не авторизованы</h3>
-            <p className="muted">В Mini App вход происходит автоматически. В браузере войдите через Telegram.</p>
+            <p className="muted">
+              В Mini App вход происходит автоматически. В браузере войдите через Telegram.
+            </p>
             {error && <p className="error small">{error}</p>}
             <div className="auth-actions">
-              <button className="button full" onClick={() => void loginWithTelegram()}>
+              <button
+                className="button full"
+                type="button"
+                onClick={() => void loginWithTelegram()}
+              >
                 <MessageCircle size={18} /> Войти через Telegram
               </button>
               {process.env.NODE_ENV === "development" && (
-                <button className="button secondary full" onClick={() => void loginForDevelopment()}>
+                <button
+                  className="button secondary full"
+                  onClick={() => void loginForDevelopment()}
+                >
                   <LogIn size={18} /> Тестовый вход
                 </button>
               )}

@@ -1,7 +1,7 @@
-import { createHash, createHmac } from "node:crypto";
+import { createHmac } from "node:crypto";
 import { describe, expect, it } from "vitest";
 
-import { validateTelegramInitData, validateTelegramLoginData } from "./telegram";
+import { validateTelegramInitData } from "./telegram";
 
 const botToken = "123456:test-token";
 
@@ -19,25 +19,6 @@ function signedInitData(authDate: number, extra: Record<string, string> = {}) {
   const secret = createHmac("sha256", "WebAppData").update(botToken).digest();
   params.set("hash", createHmac("sha256", secret).update(checkString).digest("hex"));
   return params.toString();
-}
-
-function signedLoginData(authDate: number, token = botToken) {
-  const data = {
-    id: 12345,
-    first_name: "Иван",
-    username: "ivan_test",
-    auth_date: authDate,
-  };
-  const checkString = Object.entries(data)
-    .sort(([a], [b]) => a.localeCompare(b))
-    .map(([key, value]) => `${key}=${value}`)
-    .join("\n");
-  const secret = createHash("sha256").update(token).digest();
-
-  return {
-    ...data,
-    hash: createHmac("sha256", secret).update(checkString).digest("hex"),
-  };
 }
 
 describe("Telegram initData validation", () => {
@@ -72,19 +53,5 @@ describe("Telegram initData validation", () => {
     expect(() =>
       validateTelegramInitData(signedInitData(1_000_000), botToken, 3600, 1_004_000),
     ).toThrow("истекла");
-  });
-});
-
-describe("Telegram Login Widget validation", () => {
-  it("accepts correctly signed browser login data", () => {
-    const user = validateTelegramLoginData(signedLoginData(1_000_000), botToken, 3600, 1_000_100);
-
-    expect(user).toMatchObject({ id: 12345, username: "ivan_test" });
-  });
-
-  it("rejects browser login data signed by a different token", () => {
-    expect(() =>
-      validateTelegramLoginData(signedLoginData(1_000_000, "123456:wrong-token"), botToken, 3600, 1_000_100),
-    ).toThrow("Подпись");
   });
 });

@@ -17,22 +17,6 @@ declare global {
         };
         HapticFeedback?: { impactOccurred(style: "light" | "medium" | "heavy"): void };
       };
-      Login?: {
-        auth(
-          options: { bot_id: string; request_access?: "write" },
-          callback: (user: false | TelegramLoginUser) => void,
-        ): void;
-      };
     };
   }
-
-  type TelegramLoginUser = {
-    id: number;
-    first_name: string;
-    last_name?: string;
-    username?: string;
-    photo_url?: string;
-    auth_date: number;
-    hash: string;
-  };
 }

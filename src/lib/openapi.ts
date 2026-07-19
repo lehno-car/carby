@@ -7,7 +7,10 @@ export const openApiDocument = {
       "Безопасная диагностика подключения Carby к PostgreSQL. Ответы не содержат DATABASE_URL или паролей.",
   },
   servers: [{ url: "/", description: "Текущий Railway-домен" }],
-  tags: [{ name: "Database", description: "Проверка PostgreSQL и обязательных таблиц" }],
+  tags: [
+    { name: "Database", description: "Проверка PostgreSQL и обязательных таблиц" },
+    { name: "Telegram", description: "Проверка бота и webhook без раскрытия токена" },
+  ],
   paths: {
     "/api/health": {
       get: {
@@ -71,6 +74,27 @@ export const openApiDocument = {
         },
       },
     },
+    "/api/diagnostics/telegram": {
+      get: {
+        tags: ["Telegram"],
+        summary: "Проверить bot token, username и webhook",
+        operationId: "getTelegramDiagnostic",
+        responses: {
+          "200": {
+            description: "Бот доступен, username и webhook совпадают с настройками",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/TelegramResult" } },
+            },
+          },
+          "503": {
+            description: "Telegram настроен некорректно или недоступен",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/DiagnosticError" } },
+            },
+          },
+        },
+      },
+    },
   },
   components: {
     schemas: {
@@ -103,6 +127,33 @@ export const openApiDocument = {
           conflictUpdate: { type: "string", enum: ["ok"] },
           cleanup: { type: "string", enum: ["scheduled"] },
           latencyMs: { type: "integer" },
+        },
+      },
+      TelegramResult: {
+        type: "object",
+        properties: {
+          status: { type: "string", enum: ["ok", "error"] },
+          bot: {
+            type: "object",
+            properties: {
+              id: { type: "integer" },
+              username: { type: "string" },
+              configuredUsername: { type: "string" },
+              usernameMatches: { type: "boolean" },
+            },
+          },
+          webhook: {
+            type: "object",
+            properties: {
+              url: { type: "string", format: "uri" },
+              expectedUrl: { type: "string", format: "uri" },
+              matches: { type: "boolean" },
+              pendingUpdates: { type: "integer" },
+              allowedUpdates: { type: "array", items: { type: "string" } },
+              lastErrorAt: { type: ["string", "null"], format: "date-time" },
+              lastError: { type: ["string", "null"] },
+            },
+          },
         },
       },
       DiagnosticError: {
