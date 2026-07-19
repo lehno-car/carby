@@ -127,6 +127,8 @@ Backend доверяет только сырому `Telegram.WebApp.initData` п
 
 Production-деплой из этого репозитория автоматически использует `Dockerfile`, `railway.json`, healthcheck `/api/health` и pre-deploy миграции. Сам деплой из этой рабочей сессии не выполнялся.
 
+Swagger UI доступен по `/swagger`. `GET /api/diagnostics/database` проверяет соединение, обязательные таблицы и чтение, а `POST /api/diagnostics/database` выполняет временный тест записи и `ON CONFLICT UPDATE` в `rate_limit_entries` с последующей очисткой.
+
 1. Создайте Railway Project и добавьте **PostgreSQL**.
 2. Добавьте **Storage Bucket**, выберите регион и имя. Bucket остаётся приватным.
 3. Добавьте приложение из GitHub-репозитория. Railway обнаружит `railway.json`/`Dockerfile`.

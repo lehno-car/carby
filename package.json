@@ -32,14 +32,15 @@
     "react": "19.2.7",
     "react-dom": "19.2.7",
     "sharp": "^0.34.0",
+    "swagger-ui-dist": "5.32.9",
     "zod": "^4.0.0"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
-    "drizzle-kit": "0.31.10",
     "dotenv": "^17.0.0",
+    "drizzle-kit": "0.31.10",
     "eslint": "^9.0.0",
     "eslint-config-next": "16.2.10",
     "prettier": "^3.0.0",
