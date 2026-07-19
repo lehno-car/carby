@@ -1,6 +1,6 @@
 import { randomBytes } from "node:crypto";
 
-import { and, eq, gt } from "drizzle-orm";
+import { and, eq, gt, sql } from "drizzle-orm";
 
 import { createSessionToken, safeUser, sessionCookie } from "@/server/auth/session";
 import { getDb } from "@/server/db";
@@ -16,14 +16,43 @@ export function createLoginToken() {
 
 export function telegramDeepLoginUrl(token: string) {
   const username = process.env.TELEGRAM_BOT_USERNAME?.trim();
-  if (!username) throw new ApiError(503, "На сервере не настроен TELEGRAM_BOT_USERNAME", "TELEGRAM_BOT_USERNAME_MISSING");
+  if (!username) {
+    throw new ApiError(
+      503,
+      "На сервере не настроен TELEGRAM_BOT_USERNAME",
+      "TELEGRAM_BOT_USERNAME_MISSING",
+    );
+  }
   return `https://t.me/${username.replace(/^@/, "")}?start=login_${token}`;
+}
+
+export async function ensureTelegramLoginRequestsTable() {
+  await getDb().execute(sql`
+    create table if not exists "telegram_login_requests" (
+      "token" varchar(80) primary key not null,
+      "telegram_id" bigint,
+      "status" varchar(20) default 'pending' not null,
+      "expires_at" timestamp with time zone not null,
+      "confirmed_at" timestamp with time zone,
+      "created_at" timestamp with time zone default now() not null
+    )
+  `);
+  await getDb().execute(sql`
+    create index if not exists "telegram_login_requests_status_idx"
+    on "telegram_login_requests" ("status")
+  `);
+  await getDb().execute(sql`
+    create index if not exists "telegram_login_requests_expires_idx"
+    on "telegram_login_requests" ("expires_at")
+  `);
 }
 
 export async function createTelegramLoginRequest() {
   const token = createLoginToken();
   const expiresAt = new Date(Date.now() + LOGIN_TTL_MS);
+  const url = telegramDeepLoginUrl(token);
 
+  await ensureTelegramLoginRequestsTable();
   await getDb().insert(telegramLoginRequests).values({
     token,
     status: "pending",
@@ -33,7 +62,7 @@ export async function createTelegramLoginRequest() {
   return {
     token,
     expiresAt,
-    url: telegramDeepLoginUrl(token),
+    url,
   };
 }
 
@@ -47,11 +76,19 @@ export async function confirmTelegramLoginRequest(
     photoUrl?: string;
   },
 ) {
+  await ensureTelegramLoginRequestsTable();
+
   const now = new Date();
   const [request] = await getDb()
     .select()
     .from(telegramLoginRequests)
-    .where(and(eq(telegramLoginRequests.token, token), eq(telegramLoginRequests.status, "pending"), gt(telegramLoginRequests.expiresAt, now)))
+    .where(
+      and(
+        eq(telegramLoginRequests.token, token),
+        eq(telegramLoginRequests.status, "pending"),
+        gt(telegramLoginRequests.expiresAt, now),
+      ),
+    )
     .limit(1);
 
   if (!request) return false;
@@ -90,6 +127,8 @@ export async function confirmTelegramLoginRequest(
 }
 
 export async function consumeTelegramLoginRequest(token: string) {
+  await ensureTelegramLoginRequestsTable();
+
   const now = new Date();
   const [request] = await getDb()
     .select()
@@ -98,14 +137,24 @@ export async function consumeTelegramLoginRequest(token: string) {
     .limit(1);
 
   if (!request || request.expiresAt <= now) {
-    throw new ApiError(410, "Ссылка авторизации истекла. Попробуйте войти ещё раз.", "TELEGRAM_LOGIN_EXPIRED");
+    throw new ApiError(
+      410,
+      "Ссылка авторизации истекла. Попробуйте войти ещё раз.",
+      "TELEGRAM_LOGIN_EXPIRED",
+    );
   }
   if (request.status !== "confirmed" || !request.telegramId) {
     return null;
   }
 
-  const [user] = await getDb().select().from(users).where(eq(users.telegramId, request.telegramId)).limit(1);
-  if (!user) throw new ApiError(404, "Пользователь Telegram не найден", "TELEGRAM_LOGIN_USER_NOT_FOUND");
+  const [user] = await getDb()
+    .select()
+    .from(users)
+    .where(eq(users.telegramId, request.telegramId))
+    .limit(1);
+  if (!user) {
+    throw new ApiError(404, "Пользователь Telegram не найден", "TELEGRAM_LOGIN_USER_NOT_FOUND");
+  }
 
   await getDb()
     .update(telegramLoginRequests)

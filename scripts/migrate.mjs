@@ -8,8 +8,9 @@ if (!process.env.DATABASE_URL) {
 
 const client = postgres(process.env.DATABASE_URL, { max: 1, prepare: false });
 try {
+  console.log("Checking database migrations...");
   await migrate(drizzle(client), { migrationsFolder: "./drizzle" });
-  console.log("Database migrations applied successfully");
+  console.log("Database migrations are up to date");
 } finally {
   await client.end({ timeout: 5 });
 }
