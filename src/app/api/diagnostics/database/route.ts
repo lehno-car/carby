@@ -17,6 +17,7 @@ const expectedTables = [
   "reports",
   "moderation_events",
   "rate_limit_entries",
+  "telegram_login_requests",
 ] as const;
 
 type DiagnosticStage =
