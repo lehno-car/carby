@@ -1,0 +1,1 @@
+ALTER TABLE "vehicle_generations" ADD CONSTRAINT "vehicle_generations_year_range_check" CHECK ("vehicle_generations"."production_start_year" is null or "vehicle_generations"."production_end_year" is null or "vehicle_generations"."production_start_year" <= "vehicle_generations"."production_end_year");

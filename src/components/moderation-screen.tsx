@@ -7,7 +7,7 @@ import { BackButton } from "@/components/back-button";
 import { api, formatPrice } from "@/lib/api";
 import type { Listing } from "@/lib/types";
 
-export function ModerationScreen() {
+export function ModerationScreen({ embedded = false }: { embedded?: boolean }) {
   const [items, setItems] = useState<Listing[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -47,14 +47,16 @@ export function ModerationScreen() {
 
   return (
     <>
-      <header className="page-header">
-        <BackButton />
-        <div style={{ flex: 1 }}>
-          <p className="eyebrow">Администратор</p>
-          <h1>Модерация</h1>
-        </div>
-        <ShieldCheck color="var(--accent)" />
-      </header>
+      {!embedded && (
+        <header className="page-header">
+          <BackButton />
+          <div style={{ flex: 1 }}>
+            <p className="eyebrow">Администратор</p>
+            <h1>Модерация</h1>
+          </div>
+          <ShieldCheck color="var(--accent)" />
+        </header>
+      )}
       {loading && <div className="skeleton" />}
       {error && <p className="notice">{error}</p>}
       {!loading && !items.length && !error && (

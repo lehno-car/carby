@@ -18,6 +18,11 @@ const expectedTables = [
   "moderation_events",
   "rate_limit_entries",
   "telegram_login_requests",
+  "vehicle_makes",
+  "vehicle_models",
+  "vehicle_generations",
+  "vehicle_catalog_imports",
+  "catalog_change_requests",
 ] as const;
 
 type DiagnosticStage =

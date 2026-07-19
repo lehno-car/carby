@@ -4,28 +4,34 @@ import { MapPin, Mic, Search, SlidersHorizontal, X, Zap } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { ListingCard } from "@/components/listing-card";
+import { VehicleCatalogFields } from "@/components/vehicle-catalog-fields";
 import { api, formatPrice } from "@/lib/api";
 import type { Listing } from "@/lib/types";
 
 const bodies = ["Все", "Седан", "Универсал", "Хэтчбек", "Кроссовер", "Внедорожник", "Минивэн"];
+const defaultFilters = {
+  makeId: "",
+  modelId: "",
+  generationId: "",
+  yearFrom: "",
+  yearTo: "",
+  minPrice: "",
+  maxPrice: "",
+  maxMileage: "",
+  city: "",
+  currency: "BYN",
+  fuelType: "",
+  transmission: "",
+  drivetrain: "",
+  sort: "newest",
+};
 
 export function HomeFeed() {
   const [query, setQuery] = useState("");
   const [bodyType, setBodyType] = useState("Все");
   const [showFilters, setShowFilters] = useState(false);
-  const [filters, setFilters] = useState({
-    minYear: "",
-    maxYear: "",
-    minPrice: "",
-    maxPrice: "",
-    maxMileage: "",
-    city: "",
-    currency: "BYN",
-    fuelType: "",
-    transmission: "",
-    drivetrain: "",
-    sort: "newest",
-  });
+  const [filters, setFilters] = useState(defaultFilters);
+  const [filtersReady, setFiltersReady] = useState(false);
   const [items, setItems] = useState<Listing[]>([]);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(false);
@@ -34,7 +40,9 @@ export function HomeFeed() {
 
   const featured = items[0];
   const heroImage = featured?.images[0]?.url.replace("variant=thumb", "variant=full");
-  const title = featured ? `${featured.make} ${featured.model}` : "Автомобиль, который подходит вам";
+  const title = featured
+    ? `${featured.make} ${featured.model}`
+    : "Автомобиль, который подходит вам";
 
   const load = useCallback(
     async (nextPage = 1, append = false) => {
@@ -54,7 +62,9 @@ export function HomeFeed() {
         setPage(data.page);
         setHasMore(data.hasMore);
       } catch (loadError) {
-        setError(loadError instanceof Error ? loadError.message : "Не удалось загрузить объявления");
+        setError(
+          loadError instanceof Error ? loadError.message : "Не удалось загрузить объявления",
+        );
       } finally {
         setLoading(false);
       }
@@ -63,9 +73,42 @@ export function HomeFeed() {
   );
 
   useEffect(() => {
+    const timer = window.setTimeout(() => {
+      const params = new URLSearchParams(window.location.search);
+      setQuery(params.get("q") ?? "");
+      setBodyType(params.get("bodyType") ?? "Все");
+      setFilters(
+        Object.fromEntries(
+          Object.entries(defaultFilters).map(([key, fallback]) => [
+            key,
+            params.get(key) ?? fallback,
+          ]),
+        ) as typeof defaultFilters,
+      );
+      setFiltersReady(true);
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, []);
+
+  useEffect(() => {
+    if (!filtersReady) return;
     const timer = window.setTimeout(() => void load(), 250);
     return () => window.clearTimeout(timer);
-  }, [load]);
+  }, [filtersReady, load]);
+
+  useEffect(() => {
+    if (!filtersReady) return;
+    const params = new URLSearchParams();
+    if (query.trim()) params.set("q", query.trim());
+    if (bodyType !== "Все") params.set("bodyType", bodyType);
+    Object.entries(filters).forEach(([key, value]) => {
+      if (value && value !== defaultFilters[key as keyof typeof defaultFilters]) {
+        params.set(key, value);
+      }
+    });
+    const search = params.toString();
+    window.history.replaceState(null, "", search ? `?${search}` : window.location.pathname);
+  }, [bodyType, filters, filtersReady, query]);
 
   function updateFilter(key: keyof typeof filters, value: string) {
     setFilters((current) => ({ ...current, [key]: value }));
@@ -76,9 +119,9 @@ export function HomeFeed() {
       { label: "Рядом", icon: <MapPin size={15} /> },
       { label: filters.maxPrice ? `До ${filters.maxPrice} ${filters.currency}` : "До 30 000" },
       { label: filters.fuelType || "Электро", icon: <Zap size={15} /> },
-      { label: filters.minYear || "2022+" },
+      { label: filters.yearFrom || "2022+" },
     ],
-    [filters.currency, filters.fuelType, filters.maxPrice, filters.minYear],
+    [filters.currency, filters.fuelType, filters.maxPrice, filters.yearFrom],
   );
 
   return (
@@ -117,7 +160,11 @@ export function HomeFeed() {
                 {chip.label}
               </button>
             ))}
-            <button className="hero-chip" type="button" onClick={() => setShowFilters(!showFilters)}>
+            <button
+              className="hero-chip"
+              type="button"
+              onClick={() => setShowFilters(!showFilters)}
+            >
               <SlidersHorizontal size={15} />
               Фильтры
             </button>
@@ -134,7 +181,11 @@ export function HomeFeed() {
             </h2>
             <p>{formatPrice(featured.price, featured.currency)}</p>
           </div>
-          <a className="icon-button" href={`/listing/${featured.id}`} aria-label="Открыть объявление">
+          <a
+            className="icon-button"
+            href={`/listing/${featured.id}`}
+            aria-label="Открыть объявление"
+          >
             →
           </a>
         </section>
@@ -155,22 +206,68 @@ export function HomeFeed() {
       {showFilters && (
         <section className="panel section" aria-label="Фильтры">
           <div className="field-grid">
-            <Field label="Год от" value={filters.minYear} onChange={(value) => updateFilter("minYear", value)} placeholder="2015" />
-            <Field label="Год до" value={filters.maxYear} onChange={(value) => updateFilter("maxYear", value)} placeholder="2026" />
-            <Field label="Цена от" value={filters.minPrice} onChange={(value) => updateFilter("minPrice", value)} />
-            <Field label="Цена до" value={filters.maxPrice} onChange={(value) => updateFilter("maxPrice", value)} />
+            <VehicleCatalogFields
+              showYear={false}
+              value={{
+                makeId: filters.makeId,
+                modelId: filters.modelId,
+                generationId: filters.generationId,
+              }}
+              onChange={(patch) =>
+                setFilters((current) => ({
+                  ...current,
+                  ...(patch.makeId !== undefined ? { makeId: patch.makeId } : {}),
+                  ...(patch.modelId !== undefined ? { modelId: patch.modelId } : {}),
+                  ...(patch.generationId !== undefined ? { generationId: patch.generationId } : {}),
+                }))
+              }
+            />
+            <Field
+              label="Год от"
+              value={filters.yearFrom}
+              onChange={(value) => updateFilter("yearFrom", value)}
+              placeholder="2015"
+            />
+            <Field
+              label="Год до"
+              value={filters.yearTo}
+              onChange={(value) => updateFilter("yearTo", value)}
+              placeholder="2026"
+            />
+            <Field
+              label="Цена от"
+              value={filters.minPrice}
+              onChange={(value) => updateFilter("minPrice", value)}
+            />
+            <Field
+              label="Цена до"
+              value={filters.maxPrice}
+              onChange={(value) => updateFilter("maxPrice", value)}
+            />
             <div className="field">
               <label>Валюта</label>
-              <select className="input" value={filters.currency} onChange={(event) => updateFilter("currency", event.target.value)}>
+              <select
+                className="input"
+                value={filters.currency}
+                onChange={(event) => updateFilter("currency", event.target.value)}
+              >
                 <option>BYN</option>
                 <option>USD</option>
                 <option>RUB</option>
               </select>
             </div>
-            <Field label="Пробег до, км" value={filters.maxMileage} onChange={(value) => updateFilter("maxMileage", value)} />
+            <Field
+              label="Пробег до, км"
+              value={filters.maxMileage}
+              onChange={(value) => updateFilter("maxMileage", value)}
+            />
             <div className="field">
               <label>Топливо</label>
-              <select className="input" value={filters.fuelType} onChange={(event) => updateFilter("fuelType", event.target.value)}>
+              <select
+                className="input"
+                value={filters.fuelType}
+                onChange={(event) => updateFilter("fuelType", event.target.value)}
+              >
                 <option value="">Любое</option>
                 <option>Бензин</option>
                 <option>Дизель</option>
@@ -178,7 +275,12 @@ export function HomeFeed() {
                 <option>Электро</option>
               </select>
             </div>
-            <Field label="Город" value={filters.city} onChange={(value) => updateFilter("city", value)} placeholder="Минск" />
+            <Field
+              label="Город"
+              value={filters.city}
+              onChange={(value) => updateFilter("city", value)}
+              placeholder="Минск"
+            />
           </div>
         </section>
       )}
@@ -211,7 +313,11 @@ export function HomeFeed() {
           ))}
         </div>
         {hasMore && (
-          <button className="button secondary full section" disabled={loading} onClick={() => void load(page + 1, true)}>
+          <button
+            className="button secondary full section"
+            disabled={loading}
+            onClick={() => void load(page + 1, true)}
+          >
             {loading ? "Загрузка…" : "Показать ещё"}
           </button>
         )}

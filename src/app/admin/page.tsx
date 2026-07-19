@@ -1,4 +1,4 @@
-import { ModerationScreen } from "@/components/moderation-screen";
+import { AdminDashboard } from "@/components/admin-dashboard";
 export default function AdminPage() {
-  return <ModerationScreen />;
+  return <AdminDashboard />;
 }

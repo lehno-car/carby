@@ -3,9 +3,9 @@ import { describe, expect, it } from "vitest";
 import { listingInputSchema, maskVin } from "./validation";
 
 const valid = {
-  make: "Volkswagen",
-  model: "Passat",
-  year: 2019,
+  makeId: "11111111-1111-4111-8111-111111111111",
+  modelId: "22222222-2222-4222-8222-222222222222",
+  manufactureYear: 2019,
   price: 67000,
   currency: "BYN",
   mileage: 120000,

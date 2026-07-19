@@ -12,10 +12,14 @@ export type SafeUser = {
 export type Listing = {
   id: string;
   ownerId: string;
+  makeId: string | null;
+  modelId: string | null;
+  generationId: string | null;
   make: string;
   model: string;
   generation: string | null;
   year: number;
+  manufactureYear: number | null;
   price: number;
   currency: "BYN" | "RUB" | "USD";
   mileage: number;
@@ -38,4 +42,39 @@ export type Listing = {
   createdAt: string;
   images: Array<{ id: string; url: string; position: number }>;
   owner?: { username: string | null; firstName: string; phone: string | null };
+  catalog?: {
+    make: CatalogMake | null;
+    model: CatalogModel | null;
+    generation: CatalogGeneration | null;
+  };
+};
+
+export type CatalogMake = {
+  id: string;
+  name: string;
+  slug: string;
+  isFeatured: boolean;
+  isSpecial: boolean;
+  isActive: boolean;
+  activeListingCount?: number;
+};
+
+export type CatalogModel = {
+  id: string;
+  makeId: string;
+  name: string;
+  slug: string;
+  isActive: boolean;
+  activeListingCount?: number;
+};
+
+export type CatalogGeneration = {
+  id: string;
+  modelId: string;
+  name: string;
+  code: string | null;
+  productionStartYear: number | null;
+  productionEndYear: number | null;
+  isFacelift: boolean;
+  isActive: boolean;
 };

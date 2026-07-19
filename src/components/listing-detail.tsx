@@ -1,6 +1,17 @@
 "use client";
 
-import { CalendarDays, Car, Eye, Flag, Gauge, Heart, MapPin, MessageCircle, Phone, Share2 } from "lucide-react";
+import {
+  CalendarDays,
+  Car,
+  Eye,
+  Flag,
+  Gauge,
+  Heart,
+  MapPin,
+  MessageCircle,
+  Phone,
+  Share2,
+} from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { BackButton } from "@/components/back-button";
@@ -76,10 +87,15 @@ export function ListingDetail({ id }: { id: string }) {
     <article className="listing-page">
       <section
         className="listing-hero"
-        onClick={() => listing.images.length && setActiveImage((activeImage + 1) % listing.images.length)}
+        onClick={() =>
+          listing.images.length && setActiveImage((activeImage + 1) % listing.images.length)
+        }
       >
         {image ? (
-          <img src={image.url.replace("variant=thumb", "variant=full")} alt={`${listing.make} ${listing.model}`} />
+          <img
+            src={image.url.replace("variant=thumb", "variant=full")}
+            alt={`${listing.make} ${listing.model}`}
+          />
         ) : (
           <span className="placeholder">
             <Car size={56} />
@@ -88,7 +104,11 @@ export function ListingDetail({ id }: { id: string }) {
         <div className="listing-hero-shade" />
         <div className="listing-hero-actions">
           <BackButton />
-          <button className={`icon-button${favorite ? " favorite on" : ""}`} onClick={toggleFavorite} aria-label="Избранное">
+          <button
+            className={`icon-button${favorite ? " favorite on" : ""}`}
+            onClick={toggleFavorite}
+            aria-label="Избранное"
+          >
             <Heart size={21} fill={favorite ? "currentColor" : "none"} />
           </button>
         </div>
@@ -116,8 +136,16 @@ export function ListingDetail({ id }: { id: string }) {
         <p className="price-large">{formatPrice(listing.price, listing.currency)}</p>
 
         <div className="details-list section">
-          <Detail icon={<CalendarDays size={21} />} label="Год выпуска" value={String(listing.year)} />
-          <Detail icon={<Gauge size={21} />} label="Пробег" value={formatMileage(listing.mileage)} />
+          <Detail
+            icon={<CalendarDays size={21} />}
+            label="Год выпуска"
+            value={String(listing.year)}
+          />
+          <Detail
+            icon={<Gauge size={21} />}
+            label="Пробег"
+            value={formatMileage(listing.mileage)}
+          />
           <Detail icon={<Car size={21} />} label="Топливо" value={listing.fuelType} />
           <Detail icon={<Car size={21} />} label="Коробка" value={listing.transmission} />
         </div>
@@ -155,7 +183,12 @@ export function ListingDetail({ id }: { id: string }) {
           </button>
         )}
         {telegram ? (
-          <a className="button" href={`https://t.me/${telegram.replace(/^@/, "")}`} target="_blank" rel="noreferrer">
+          <a
+            className="button"
+            href={`https://t.me/${telegram.replace(/^@/, "")}`}
+            target="_blank"
+            rel="noreferrer"
+          >
             <MessageCircle size={18} /> Написать
           </a>
         ) : (

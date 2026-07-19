@@ -23,12 +23,13 @@ describe("listing access and filters", () => {
   it("normalizes pagination, filtering and sorting", () => {
     const options = parseListOptions(
       new URLSearchParams(
-        "q= passat &minYear=2018&maxPrice=80000&page=-4&limit=999&sort=price_asc",
+        "q= passat &yearFrom=2018&maxPrice=80000&makeId=11111111-1111-4111-8111-111111111111&page=-4&limit=999&sort=price_asc",
       ),
     );
     expect(options).toMatchObject({
       query: "passat",
       minYear: 2018,
+      makeId: "11111111-1111-4111-8111-111111111111",
       maxPrice: 80000,
       page: 1,
       limit: 30,

@@ -20,10 +20,10 @@ export const transmissions = ["Механика", "Автомат", "Робот"
 export const drivetrains = ["Передний", "Задний", "Полный"] as const;
 
 export const listingInputSchema = z.object({
-  make: z.string().trim().min(1).max(80),
-  model: z.string().trim().min(1).max(80),
-  generation: optionalText(120),
-  year: z.coerce
+  makeId: z.uuid(),
+  modelId: z.uuid(),
+  generationId: z.union([z.uuid(), z.literal(""), z.null()]).optional(),
+  manufactureYear: z.coerce
     .number()
     .int()
     .min(1900)
@@ -88,7 +88,7 @@ export const moderationInputSchema = z.discriminatedUnion("action", [
 export function normalizeListingInput(data: z.infer<typeof listingInputSchema>) {
   return {
     ...data,
-    generation: data.generation || null,
+    generationId: data.generationId || null,
     engineVolume:
       data.engineVolume === "" || data.engineVolume === undefined
         ? null

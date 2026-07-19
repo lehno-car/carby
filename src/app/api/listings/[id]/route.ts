@@ -2,9 +2,10 @@ import { eq, sql } from "drizzle-orm";
 import { NextResponse } from "next/server";
 
 import { requireUser } from "@/server/auth/session";
+import { validateVehicleSelection } from "@/server/catalog/service";
 import { getDb } from "@/server/db";
 import { carImages, carListings, users } from "@/server/db/schema";
-import { apiError, readJson } from "@/server/http";
+import { ApiError, apiError, readJson } from "@/server/http";
 import { assertOwnerOrAdmin, attachImages, getListingOrThrow } from "@/server/listings/service";
 import { listingPatchSchema } from "@/server/listings/validation";
 import { deleteImageObjects } from "@/server/storage";
@@ -47,8 +48,51 @@ export async function PATCH(request: Request, context: Context) {
     const input = listingPatchSchema.parse(await readJson(request));
 
     const update: Record<string, unknown> = { ...input, updatedAt: new Date() };
-    for (const field of ["generation", "color", "vin", "sellerPhone", "sellerTelegram"] as const) {
+    for (const field of [
+      "generationId",
+      "color",
+      "vin",
+      "sellerPhone",
+      "sellerTelegram",
+    ] as const) {
       if (field in input) update[field] = input[field] || null;
+    }
+    const vehicleChanged = ["makeId", "modelId", "generationId", "manufactureYear"].some(
+      (field) => field in input,
+    );
+    let yearWarning: string | null = null;
+    if (vehicleChanged) {
+      const makeId = input.makeId ?? current.makeId;
+      const modelId = input.modelId ?? current.modelId;
+      const generationId =
+        "generationId" in input ? input.generationId || null : current.generationId;
+      const manufactureYear = input.manufactureYear ?? current.manufactureYear ?? current.year;
+      if (!makeId || !modelId) {
+        throw new ApiError(
+          400,
+          "Выберите марку и модель из каталога",
+          "CATALOG_SELECTION_REQUIRED",
+        );
+      }
+      const catalog = await validateVehicleSelection({
+        makeId,
+        modelId,
+        generationId,
+        year: manufactureYear,
+        allowInactive:
+          makeId === current.makeId &&
+          modelId === current.modelId &&
+          generationId === current.generationId,
+      });
+      update.makeId = makeId;
+      update.modelId = modelId;
+      update.generationId = generationId;
+      update.manufactureYear = manufactureYear;
+      update.make = catalog.make.name;
+      update.model = catalog.model.name;
+      update.generation = catalog.generation?.name ?? null;
+      update.year = manufactureYear;
+      yearWarning = catalog.yearWarning;
     }
     if ("engineVolume" in input) {
       update.engineVolume =
@@ -67,7 +111,7 @@ export async function PATCH(request: Request, context: Context) {
       .set(update)
       .where(eq(carListings.id, id))
       .returning();
-    return NextResponse.json({ listing });
+    return NextResponse.json({ listing, warning: yearWarning });
   } catch (error) {
     return apiError(error);
   }

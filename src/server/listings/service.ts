@@ -1,7 +1,17 @@
-import { and, asc, desc, eq, gte, ilike, inArray, lte, or, type SQL } from "drizzle-orm";
+import { and, asc, desc, eq, gte, ilike, inArray, lte, or, sql, type SQL } from "drizzle-orm";
 
 import { getDb } from "@/server/db";
-import { carImages, carListings, users } from "@/server/db/schema";
+import {
+  carImages,
+  carListings,
+  users,
+  vehicleGenerationAliases,
+  vehicleGenerations,
+  vehicleMakeAliases,
+  vehicleMakes,
+  vehicleModelAliases,
+  vehicleModels,
+} from "@/server/db/schema";
 import { ApiError } from "@/server/http";
 import { maskVin } from "@/server/listings/validation";
 
@@ -36,7 +46,8 @@ export async function attachImages<T extends typeof carListings.$inferSelect>(li
       ),
     )
     .orderBy(asc(carImages.position));
-  return listings.map((listing) => ({
+  const catalogListings = await attachCatalogNames(listings);
+  return catalogListings.map((listing) => ({
     ...listing,
     vin: undefined,
     maskedVin: maskVin(listing.vin),
@@ -44,6 +55,48 @@ export async function attachImages<T extends typeof carListings.$inferSelect>(li
       .filter((image) => image.listingId === listing.id)
       .map((image) => ({ id: image.id, url: imagePath(image.id), position: image.position })),
   }));
+}
+
+async function attachCatalogNames<T extends typeof carListings.$inferSelect>(listings: T[]) {
+  const makeIds = [...new Set(listings.flatMap((item) => (item.makeId ? [item.makeId] : [])))];
+  const modelIds = [...new Set(listings.flatMap((item) => (item.modelId ? [item.modelId] : [])))];
+  const generationIds = [
+    ...new Set(listings.flatMap((item) => (item.generationId ? [item.generationId] : []))),
+  ];
+  const [makes, models, generations] = await Promise.all([
+    makeIds.length
+      ? getDb().select().from(vehicleMakes).where(inArray(vehicleMakes.id, makeIds))
+      : [],
+    modelIds.length
+      ? getDb().select().from(vehicleModels).where(inArray(vehicleModels.id, modelIds))
+      : [],
+    generationIds.length
+      ? getDb()
+          .select()
+          .from(vehicleGenerations)
+          .where(inArray(vehicleGenerations.id, generationIds))
+      : [],
+  ]);
+  const makeById = new Map(makes.map((item) => [item.id, item]));
+  const modelById = new Map(models.map((item) => [item.id, item]));
+  const generationById = new Map(generations.map((item) => [item.id, item]));
+  return listings.map((listing) => {
+    const make = listing.makeId ? makeById.get(listing.makeId) : undefined;
+    const model = listing.modelId ? modelById.get(listing.modelId) : undefined;
+    const generation = listing.generationId ? generationById.get(listing.generationId) : undefined;
+    return {
+      ...listing,
+      make: make?.name ?? listing.make,
+      model: model?.name ?? listing.model,
+      generation: generation?.name ?? listing.generation,
+      year: listing.manufactureYear ?? listing.year,
+      catalog: {
+        make: make ?? null,
+        model: model ?? null,
+        generation: generation ?? null,
+      },
+    };
+  });
 }
 
 function numberParam(params: URLSearchParams, key: string) {
@@ -59,11 +112,12 @@ export function parseListOptions(params: URLSearchParams) {
   const sort = allowedSorts.find((value) => value === requestedSort) ?? "newest";
   return {
     query: params.get("q")?.trim() ?? "",
-    make: params.get("make")?.trim() ?? "",
-    model: params.get("model")?.trim() ?? "",
+    makeId: params.get("makeId")?.trim() ?? "",
+    modelId: params.get("modelId")?.trim() ?? "",
+    generationId: params.get("generationId")?.trim() ?? "",
     city: params.get("city")?.trim() ?? "",
-    minYear: numberParam(params, "minYear"),
-    maxYear: numberParam(params, "maxYear"),
+    minYear: numberParam(params, "yearFrom") ?? numberParam(params, "minYear"),
+    maxYear: numberParam(params, "yearTo") ?? numberParam(params, "maxYear"),
     minPrice: numberParam(params, "minPrice"),
     maxPrice: numberParam(params, "maxPrice"),
     maxMileage: numberParam(params, "maxMileage"),
@@ -77,8 +131,9 @@ export async function listActiveListings(params: URLSearchParams) {
   const options = parseListOptions(params);
   const conditions: SQL[] = [eq(carListings.status, "active")];
   const search = options.query;
-  const make = options.make;
-  const model = options.model;
+  const makeId = options.makeId;
+  const modelId = options.modelId;
+  const generationId = options.generationId;
   const city = options.city;
   const scalarFilters = [
     ["bodyType", carListings.bodyType],
@@ -92,11 +147,15 @@ export async function listActiveListings(params: URLSearchParams) {
     const searchCondition = or(
       ilike(carListings.make, `%${search}%`),
       ilike(carListings.model, `%${search}%`),
+      sql`exists (select 1 from ${vehicleMakeAliases} where ${vehicleMakeAliases.makeId} = ${carListings.makeId} and ${vehicleMakeAliases.normalizedAlias} ilike ${`%${search}%`})`,
+      sql`exists (select 1 from ${vehicleModelAliases} where ${vehicleModelAliases.modelId} = ${carListings.modelId} and ${vehicleModelAliases.normalizedAlias} ilike ${`%${search}%`})`,
+      sql`exists (select 1 from ${vehicleGenerationAliases} where ${vehicleGenerationAliases.generationId} = ${carListings.generationId} and ${vehicleGenerationAliases.normalizedAlias} ilike ${`%${search}%`})`,
     );
     if (searchCondition) conditions.push(searchCondition);
   }
-  if (make) conditions.push(ilike(carListings.make, make));
-  if (model) conditions.push(ilike(carListings.model, model));
+  if (makeId) conditions.push(eq(carListings.makeId, makeId));
+  if (modelId) conditions.push(eq(carListings.modelId, modelId));
+  if (generationId) conditions.push(eq(carListings.generationId, generationId));
   if (city) conditions.push(ilike(carListings.city, city));
   for (const [key, column] of scalarFilters) {
     const value = params.get(key);
@@ -104,8 +163,14 @@ export async function listActiveListings(params: URLSearchParams) {
   }
 
   const { minYear, maxYear, minPrice, maxPrice, maxMileage } = options;
-  if (minYear) conditions.push(gte(carListings.year, minYear));
-  if (maxYear) conditions.push(lte(carListings.year, maxYear));
+  if (minYear)
+    conditions.push(
+      gte(sql`coalesce(${carListings.manufactureYear}, ${carListings.year})`, minYear),
+    );
+  if (maxYear)
+    conditions.push(
+      lte(sql`coalesce(${carListings.manufactureYear}, ${carListings.year})`, maxYear),
+    );
   if (minPrice) conditions.push(gte(carListings.price, minPrice));
   if (maxPrice) conditions.push(lte(carListings.price, maxPrice));
   if (maxMileage) conditions.push(lte(carListings.mileage, maxMileage));

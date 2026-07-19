@@ -35,7 +35,9 @@ function getInitialTheme(): Theme {
 function applyTheme(theme: Theme) {
   document.documentElement.dataset.theme = theme;
   document.documentElement.style.colorScheme = theme;
-  document.querySelector('meta[name="theme-color"]')?.setAttribute("content", theme === "dark" ? "#090d11" : "#f7f8fa");
+  document
+    .querySelector('meta[name="theme-color"]')
+    ?.setAttribute("content", theme === "dark" ? "#090d11" : "#f7f8fa");
 }
 
 export function ThemeProvider({ children }: { children: ReactNode }) {

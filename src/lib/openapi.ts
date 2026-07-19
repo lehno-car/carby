@@ -10,8 +10,138 @@ export const openApiDocument = {
   tags: [
     { name: "Database", description: "Проверка PostgreSQL и обязательных таблиц" },
     { name: "Telegram", description: "Проверка бота и webhook без раскрытия токена" },
+    { name: "Catalog", description: "Публичный справочник марок, моделей и поколений" },
   ],
   paths: {
+    "/api/catalog/makes": {
+      get: {
+        tags: ["Catalog"],
+        summary: "Список и поиск марок",
+        parameters: [
+          { name: "query", in: "query", schema: { type: "string" } },
+          { name: "featured", in: "query", schema: { type: "boolean" } },
+          { name: "page", in: "query", schema: { type: "integer", minimum: 1 } },
+          { name: "limit", in: "query", schema: { type: "integer", minimum: 1, maximum: 100 } },
+        ],
+        responses: {
+          "200": {
+            description: "Марки",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/CatalogPage" } },
+            },
+          },
+        },
+      },
+    },
+    "/api/catalog/makes/{makeId}": {
+      get: {
+        tags: ["Catalog"],
+        summary: "Марка по ID",
+        parameters: [
+          {
+            name: "makeId",
+            in: "path",
+            required: true,
+            schema: { type: "string", format: "uuid" },
+          },
+        ],
+        responses: { "200": { description: "Марка" }, "404": { description: "Не найдена" } },
+      },
+    },
+    "/api/catalog/makes/{makeId}/models": {
+      get: {
+        tags: ["Catalog"],
+        summary: "Модели выбранной марки",
+        parameters: [
+          {
+            name: "makeId",
+            in: "path",
+            required: true,
+            schema: { type: "string", format: "uuid" },
+          },
+          { name: "query", in: "query", schema: { type: "string" } },
+          { name: "page", in: "query", schema: { type: "integer", minimum: 1 } },
+          { name: "limit", in: "query", schema: { type: "integer", minimum: 1, maximum: 100 } },
+        ],
+        responses: {
+          "200": {
+            description: "Модели",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/CatalogPage" } },
+            },
+          },
+        },
+      },
+    },
+    "/api/catalog/models/{modelId}": {
+      get: {
+        tags: ["Catalog"],
+        summary: "Модель по ID",
+        parameters: [
+          {
+            name: "modelId",
+            in: "path",
+            required: true,
+            schema: { type: "string", format: "uuid" },
+          },
+        ],
+        responses: { "200": { description: "Модель" }, "404": { description: "Не найдена" } },
+      },
+    },
+    "/api/catalog/models/{modelId}/generations": {
+      get: {
+        tags: ["Catalog"],
+        summary: "Поколения выбранной модели",
+        parameters: [
+          {
+            name: "modelId",
+            in: "path",
+            required: true,
+            schema: { type: "string", format: "uuid" },
+          },
+          { name: "year", in: "query", schema: { type: "integer", minimum: 1886 } },
+          { name: "query", in: "query", schema: { type: "string" } },
+        ],
+        responses: {
+          "200": {
+            description: "Поколения",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/CatalogPage" } },
+            },
+          },
+        },
+      },
+    },
+    "/api/catalog/generations/{generationId}": {
+      get: {
+        tags: ["Catalog"],
+        summary: "Поколение по ID",
+        parameters: [
+          {
+            name: "generationId",
+            in: "path",
+            required: true,
+            schema: { type: "string", format: "uuid" },
+          },
+        ],
+        responses: { "200": { description: "Поколение" }, "404": { description: "Не найдено" } },
+      },
+    },
+    "/api/catalog/search": {
+      get: {
+        tags: ["Catalog"],
+        summary: "Глобальный поиск по каталогу и алиасам",
+        parameters: [{ name: "query", in: "query", required: true, schema: { type: "string" } }],
+        responses: { "200": { description: "Совпавшие марки, модели и поколения" } },
+      },
+    },
+    "/api/catalog/version": {
+      get: {
+        tags: ["Catalog"],
+        summary: "Последняя версия импорта",
+        responses: { "200": { description: "Версия и отчёт импорта" } },
+      },
+    },
     "/api/health": {
       get: {
         tags: ["Database"],
@@ -98,6 +228,15 @@ export const openApiDocument = {
   },
   components: {
     schemas: {
+      CatalogPage: {
+        type: "object",
+        required: ["items", "page", "hasMore"],
+        properties: {
+          items: { type: "array", items: { type: "object", additionalProperties: true } },
+          page: { type: "integer" },
+          hasMore: { type: "boolean" },
+        },
+      },
       HealthResult: {
         type: "object",
         properties: {

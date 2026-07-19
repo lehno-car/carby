@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { requireUser } from "@/server/auth/session";
+import { validateVehicleSelection } from "@/server/catalog/service";
 import { getDb } from "@/server/db";
 import { carListings } from "@/server/db/schema";
 import { apiError, readJson } from "@/server/http";
@@ -21,11 +22,25 @@ export async function POST(request: Request) {
     const user = await requireUser(request);
     await enforceRateLimit("create-listing", user.id, 10, 60 * 60);
     const input = normalizeListingInput(listingInputSchema.parse(await readJson(request)));
+    const catalog = await validateVehicleSelection({
+      makeId: input.makeId,
+      modelId: input.modelId,
+      generationId: input.generationId,
+      year: input.manufactureYear,
+    });
     const [listing] = await getDb()
       .insert(carListings)
-      .values({ ...input, ownerId: user.id, status: "pending" })
+      .values({
+        ...input,
+        make: catalog.make.name,
+        model: catalog.model.name,
+        generation: catalog.generation?.name ?? null,
+        year: input.manufactureYear,
+        ownerId: user.id,
+        status: "pending",
+      })
       .returning();
-    return NextResponse.json({ listing }, { status: 201 });
+    return NextResponse.json({ listing, warning: catalog.yearWarning }, { status: 201 });
   } catch (error) {
     return apiError(error);
   }

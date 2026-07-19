@@ -5,15 +5,16 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { PageHeader } from "@/components/page-header";
+import { VehicleCatalogFields } from "@/components/vehicle-catalog-fields";
 import { useAuth } from "@/components/auth-provider";
 import { api } from "@/lib/api";
 import type { Listing } from "@/lib/types";
 
 const initial = {
-  make: "",
-  model: "",
-  generation: "",
-  year: String(new Date().getFullYear()),
+  makeId: "",
+  modelId: "",
+  generationId: "",
+  manufactureYear: String(new Date().getFullYear()),
   price: "",
   currency: "BYN",
   mileage: "",
@@ -47,10 +48,10 @@ export function SellForm({ editId }: { editId?: string }) {
       .then(({ listing }) => {
         setExistingImages(listing.images);
         setForm({
-          make: listing.make,
-          model: listing.model,
-          generation: listing.generation ?? "",
-          year: String(listing.year),
+          makeId: listing.makeId ?? "",
+          modelId: listing.modelId ?? "",
+          generationId: listing.generationId ?? "",
+          manufactureYear: String(listing.manufactureYear ?? listing.year),
           price: String(listing.price),
           currency: listing.currency,
           mileage: String(listing.mileage),
@@ -79,7 +80,7 @@ export function SellForm({ editId }: { editId?: string }) {
   function next() {
     const required =
       step === 0
-        ? [form.make, form.model, form.year, form.price]
+        ? [form.makeId, form.modelId, form.manufactureYear, form.price]
         : [form.mileage, form.bodyType, form.fuelType, form.transmission, form.drivetrain];
     if (required.some((value) => !value)) {
       setError("Заполните обязательные поля");
@@ -100,7 +101,7 @@ export function SellForm({ editId }: { editId?: string }) {
       const payload = {
         ...form,
         country: "Беларусь",
-        year: Number(form.year),
+        manufactureYear: Number(form.manufactureYear),
         price: Number(form.price),
         mileage: Number(form.mileage),
         horsepower: form.horsepower ? Number(form.horsepower) : "",
@@ -186,29 +187,25 @@ export function SellForm({ editId }: { editId?: string }) {
           <>
             <h2>Основное</h2>
             <div className="field-grid">
-              <Field
-                label="Марка *"
-                value={form.make}
-                onChange={(v) => update("make", v)}
-                placeholder="Volkswagen"
-              />
-              <Field
-                label="Модель *"
-                value={form.model}
-                onChange={(v) => update("model", v)}
-                placeholder="Passat"
-              />
-              <Field
-                label="Поколение / комплектация"
-                value={form.generation}
-                onChange={(v) => update("generation", v)}
-                full
-              />
-              <Field
-                label="Год *"
-                value={form.year}
-                onChange={(v) => update("year", v)}
-                inputMode="numeric"
+              <VehicleCatalogFields
+                value={{
+                  makeId: form.makeId,
+                  modelId: form.modelId,
+                  generationId: form.generationId,
+                  year: form.manufactureYear,
+                }}
+                onChange={(patch) =>
+                  setForm((current) => ({
+                    ...current,
+                    ...(patch.makeId !== undefined ? { makeId: patch.makeId } : {}),
+                    ...(patch.modelId !== undefined ? { modelId: patch.modelId } : {}),
+                    ...(patch.generationId !== undefined
+                      ? { generationId: patch.generationId }
+                      : {}),
+                    ...(patch.year !== undefined ? { manufactureYear: patch.year } : {}),
+                  }))
+                }
+                allowRequest
               />
               <Field
                 label="Цена *"
