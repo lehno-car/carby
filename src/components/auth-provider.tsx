@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 
 import { api } from "@/lib/api";
 import type { SafeUser } from "@/lib/types";
@@ -9,8 +9,14 @@ type AuthContextValue = {
   user: SafeUser | null;
   loading: boolean;
   error: string | null;
+  loginWithTelegram(): Promise<void>;
   loginForDevelopment(): Promise<void>;
   refresh(): Promise<void>;
+};
+
+type TelegramLoginConfig = {
+  botId: string;
+  botUsername: string | null;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -25,7 +31,7 @@ async function waitForTelegramInitData(timeoutMs = 2_000) {
   return "";
 }
 
-export function AuthProvider({ children }: { children: React.ReactNode }) {
+export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<SafeUser | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -51,9 +57,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setError(authError instanceof Error ? authError.message : "Ошибка Telegram-авторизации");
         }
       } else {
-        setError(
-          "Telegram не передал initData. Закройте страницу и откройте Mini App кнопкой внутри @carbytestbot",
-        );
+        setError(null);
       }
     } finally {
       setLoading(false);
@@ -80,9 +84,42 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  const loginWithTelegram = useCallback(async () => {
+    setLoading(true);
+    try {
+      const config = await api<TelegramLoginConfig>("/api/auth/telegram-login/config");
+      const login = window.Telegram?.Login;
+      if (!login) {
+        throw new Error("Telegram Login Widget не загрузился. Обновите страницу и попробуйте ещё раз.");
+      }
+
+      const telegramUser = await new Promise<TelegramLoginUser>((resolve, reject) => {
+        login.auth({ bot_id: config.botId, request_access: "write" }, (result) => {
+          if (!result) {
+            reject(new Error("Вход через Telegram отменён"));
+            return;
+          }
+          resolve(result);
+        });
+      });
+
+      const result = await api<{ user: SafeUser }>("/api/auth/telegram-login", {
+        method: "POST",
+        body: JSON.stringify(telegramUser),
+      });
+      setUser(result.user);
+      setError(null);
+    } catch (loginError) {
+      setUser(null);
+      setError(loginError instanceof Error ? loginError.message : "Не удалось войти через Telegram");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   const value = useMemo(
-    () => ({ user, loading, error, loginForDevelopment, refresh }),
-    [user, loading, error, loginForDevelopment, refresh],
+    () => ({ user, loading, error, loginWithTelegram, loginForDevelopment, refresh }),
+    [user, loading, error, loginWithTelegram, loginForDevelopment, refresh],
   );
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

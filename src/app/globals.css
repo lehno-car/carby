@@ -443,6 +443,12 @@ textarea.input {
   flex: 1;
 }
 
+.auth-actions {
+  display: grid;
+  gap: 10px;
+  margin-top: 18px;
+}
+
 .theme-panel {
   display: grid;
   gap: 14px;

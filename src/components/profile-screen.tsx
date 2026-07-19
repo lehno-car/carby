@@ -1,6 +1,6 @@
 "use client";
 
-import { LogIn, LogOut, Moon, RefreshCw, ShieldCheck, Sun, UserRound } from "lucide-react";
+import { LogIn, LogOut, MessageCircle, Moon, ShieldCheck, Sun, UserRound } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 
@@ -11,7 +11,7 @@ import { api } from "@/lib/api";
 import type { SafeUser } from "@/lib/types";
 
 export function ProfileScreen() {
-  const { user, loading, error, loginForDevelopment, refresh } = useAuth();
+  const { user, loading, error, loginWithTelegram, loginForDevelopment, refresh } = useAuth();
   const { theme, setTheme } = useTheme();
   const [phoneOverride, setPhoneOverride] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -29,6 +29,7 @@ export function ProfileScreen() {
       setMessage(reason instanceof Error ? reason.message : "Не удалось сохранить");
     }
   }
+
   async function logout() {
     await api("/api/auth/logout", { method: "POST" });
     location.reload();
@@ -37,6 +38,7 @@ export function ProfileScreen() {
   return (
     <>
       <PageHeader title="Профиль" subtitle="AutoMarket" />
+
       <section className="panel theme-panel">
         <div>
           <h3>Тема интерфейса</h3>
@@ -61,26 +63,30 @@ export function ProfileScreen() {
           </button>
         </div>
       </section>
+
       {loading && <div className="skeleton" />}
+
       {!loading && !user && (
         <div className="empty">
           <div>
             <UserRound size={44} />
             <h3>Вы не авторизованы</h3>
-            <p className="muted">В Telegram вход произойдёт автоматически.</p>
+            <p className="muted">В Mini App вход происходит автоматически. В браузере войдите через Telegram.</p>
             {error && <p className="error small">{error}</p>}
-            {process.env.NODE_ENV === "development" ? (
-              <button className="button" onClick={() => void loginForDevelopment()}>
-                <LogIn size={18} /> Тестовый вход
+            <div className="auth-actions">
+              <button className="button full" onClick={() => void loginWithTelegram()}>
+                <MessageCircle size={18} /> Войти через Telegram
               </button>
-            ) : (
-              <button className="button" onClick={() => void refresh()}>
-                <RefreshCw size={18} /> Повторить авторизацию
-              </button>
-            )}
+              {process.env.NODE_ENV === "development" && (
+                <button className="button secondary full" onClick={() => void loginForDevelopment()}>
+                  <LogIn size={18} /> Тестовый вход
+                </button>
+              )}
+            </div>
           </div>
         </div>
       )}
+
       {user && (
         <>
           <section className="panel">
@@ -121,6 +127,7 @@ export function ProfileScreen() {
               Сохранить
             </button>
           </section>
+
           {user.role === "admin" && (
             <Link
               href="/admin"
@@ -135,6 +142,7 @@ export function ProfileScreen() {
               <ShieldCheck color="var(--accent)" />
             </Link>
           )}
+
           <button className="button secondary full section" onClick={() => void logout()}>
             <LogOut size={18} /> Выйти
           </button>
